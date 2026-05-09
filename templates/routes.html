@@ -1,0 +1,442 @@
+{% extends "layout.html" %}
+{% block title %}การดำเนินงาน{% endblock %}
+{% block header %}การดำเนินงาน{% endblock %}
+{% block sub_header %}เพิ่มหรืออัพเดทการดำเนินงาน{% endblock %}
+{% block content %}
+<div v-show="active_ui === 1" class="row">
+  <div class="col-12">
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="mb-2 d-flex align-items-end justify-content-between">
+          <h5 class="card-title">การดำเนินงาน</h5>
+          <button @click="show_create" class="btn btn-danger btn-sm"><span class="icon-add"></span> การดำเนินงาน&nbsp;</button>
+        </div>
+        <div class="table-responsive">
+          <table id="data-table" class="table table-striped table-bordered dataTable" style="white-space:nowrap;">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>
+                  <div>
+                    รหัส
+                  </div>
+                </th>
+                <th>
+                  <div>
+                    ชื่อ
+                  </div>
+                </th>
+                <th>
+                  <div>
+                    รายละเอียด
+                  </div>
+                </th>
+                <th>
+                  <div>
+                    สถานะ
+                  </div>
+                </th>
+                <th>
+                  <div>
+                    สร้างเมื่อ
+                  </div>
+                </th>
+                <th>
+                  <div class="text-center">
+                    Action
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(route, index) in routes">
+                <td>{index+1}.</td>
+                <td>{route.code}</td>
+                <td>{route.name}</td>
+                <td>{route.description}</td>
+                <td v-html="get_html_badge(route.is_active)"></td>
+                <td>{route.create_time}</td>
+                <td class="text-center">
+                  <a @click="show_edit(route)" :data-bs-toggle="'table-tooltip'" :title="'แก้ไข'" class="text-info cursor-pointer mx-2"><span class="icon-edit"></span></a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div v-show="active_ui === 2" class="row" style="display:none;">
+  <div class="col-12">
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="card-title">การดำเนินงาน</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-sm-6">
+            <div class="row">
+              <div class="col-sm-6">
+                <div class="mb-3">
+                  <label class="form-label">รหัส</label>
+                  <input type="text" class="form-control" v-model.trim="route.code"/>
+                </div>
+              </div>
+              <div class="col-sm-6">
+                <div class="mb-3">
+                  <label class="form-label">ชื่อ</label>
+                  <input type="text" class="form-control" v-model.trim="route.name"/>
+                </div>
+              </div>
+              <div class="col-sm-12">
+                <div class="mb-3">
+                  <label class="form-label">รายละเอียด</label>
+                  <input type="text" class="form-control" v-model.trim="route.description"/>
+                </div>
+              </div>
+            </div>
+            <div class="row mb-4">
+              <div class="col">
+                <label class="form-label">เลือกการดำเนินงานตามลำดับ</label>
+                <div class="table-outer">
+                  <div class="table-responsive">
+                    <table class="table table-striped table-bordered">
+                      <thead>
+                        <tr>
+                          <th>
+                            #
+                          </th>
+                          <th>Code</th>
+                          <th>Name</th>
+                          <th>Description</th>
+                          <th>Type</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="operation in operations">
+                          <td>
+                            <input @change="check_change(operation)" v-model="operation.is_checked" type="checkbox" class="form-check m-0" />
+                          </td>
+                          <td>{operation.id}</td>
+                          <td>{operation.name}</td>
+                          <td>{operation.description}</td>
+                          <td>{operation.opn_type}</td>
+                        </tr>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>              
+          </div>
+          <div class="offset-sm-1 col-sm-4">
+            <div class="row">
+              <div class="col-sm-7">
+                <div class="mb-4">
+                  <div class="card-title">การดำเนินงาน</div>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col">
+                <div v-if="route.operations.length === 0" class="d-flex mb-4">
+                  <div>
+                    <span class="btn btn-primary pe-none me-4">0</span>
+                  </div>
+                  <div>
+                    <h4 class="mb-3">Not Selected</h4>
+                    <p class="mb-0 text-secondary">Please select operations</p>
+                  </div>
+                </div>
+                <div v-else v-for="(item, index) in route.operations" class="d-flex mb-4">
+                  <div>
+                    <span class="btn btn-primary pe-none me-4">{index+1}</span>
+                  </div>
+                  <div>
+                    <h4 class="mb-3">{item.code} {item.name}</h4>
+                    <p class="mb-0 text-secondary">{item.description}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="d-flex my-3 align-items-end justify-content-center">
+            <button @click="active_ui = 1" class="btn btn-outline-secondary mx-2">Cancel</button> <button @click="submit" class="btn btn-danger mx-2">Submit</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block app_script %}
+<script>
+const { createApp } = Vue;
+
+createApp({
+    data() {
+      return {
+        active_ui: 1,
+        routes: [],
+        operations:[],
+        act: 1, // 1 Create, 2 Edit
+        route: {
+          id: 0,
+          code: "",
+          description: "",
+          operations: [],
+          is_active: true
+        }
+      }
+    },
+    mounted() {
+      this.submit_form("get_operations", false);
+      this.submit_form("get_routes");
+    },
+    methods: {
+      get_api_endpoint(action) {
+        switch (action) {
+          case "get_operations":
+            return "/operations/get";
+          case "get_routes":
+            return "/routes/get";
+          case "create_route":
+            return "/routes/create";
+          case "update_route":
+            return "/routes/update";
+        }
+      },
+      validate_input(action) {
+        let is_valid = true;
+        switch (action) {
+          case "get_operations":
+            return true;
+          case "get_routes":
+            return true;
+          case "create_route":
+            if(this.route.code === "")
+            {
+              console.log("Code is blank");
+              is_valid = false;
+            }
+            if(this.route.name === "")
+            {
+              console.log("Name is blank");
+              is_valid = false;
+            }
+            if(this.route.description === "")
+            {
+              console.log("Name is blank");
+              is_valid = false;
+            }
+            if(this.route.operations.length === 0)
+            {
+              console.log("Please select operations");
+              is_valid = false;
+            }
+            return is_valid;
+          case "update_route":
+            if(this.route.code === "")
+            {
+              console.log("Code is blank");
+              is_valid = false;
+            }
+            if(this.route.name === "")
+            {
+              console.log("Name is blank");
+              is_valid = false;
+            }
+            if(this.route.description === "")
+            {
+              console.log("Name is blank");
+              is_valid = false;
+            }
+            if(this.route.operations.length === 0)
+            {
+              console.log("Please select operations");
+              is_valid = false;
+            }
+            return is_valid;
+        }
+      },
+      async get_form_data(action) {
+        switch (action) {
+          case "get_operations":
+            return {};
+          case "get_routes":
+            return {};
+          case "create_route":
+            await this.msg_box_show(this.with_loading("Submitting..."), 0);
+            return this.route;
+          case "update_route":
+            await this.msg_box_show(this.with_loading("Submitting..."), 0);
+            return this.route;
+        }
+      },
+      process_response_data(action, data) {
+        switch (action) {
+          case "get_operations":
+            let operations = data.data_list;
+            for(let i = 0; i < operations.length; i++) {
+              operations[i].is_checked = false;
+              operations[i].opn_type = MyApp.opn_type_dict[operations[i].type];
+            }  
+            operations.sort((a, b) => a.id.localeCompare(b.id));
+            this.operations = operations;
+            return;
+          case "get_routes":
+            $('#data-table').DataTable().destroy();
+            this.routes = data.data_list;
+            Vue.nextTick(() => {
+              $('#data-table').DataTable({lengthChange: false, searching: false, pageLength: 10});
+              this.init_tooltips();
+            });
+            return;
+          case "create_route":
+            this.submit_form("get_routes", false);
+            this.hide_msg_box();
+            this.active_ui = 1;
+            return;
+          case "update_route":
+            this.submit_form("get_routes", false);
+            this.hide_msg_box();
+            this.active_ui = 1;
+            return;
+        }
+      },
+      handle_response_error(action, error) {
+        response = error.response;
+        if(response) {
+          //We get response from the server
+          if(response.data.status === "I" || response.data.status === "U") window.location.href = "/logout";         
+          switch (action) {
+            case "get_operations":
+              console.log(response.data.err_message);
+              return;
+            case "get_routes":
+              console.log(response.data.err_message);
+              return;
+            case "create_route":
+              this.msg_box_set(response.data.err_message, 1);
+              return;
+            case "update_route":
+              this.msg_box_set(response.data.err_message, 1);
+              return;
+          }
+        }
+        else {
+          //The Server does not respond
+          switch (action) {
+            case 'get_operations':
+              console.log("An unknown error occurred. Please try again later.");
+              return;
+            case 'get_routes':
+              console.log("An unknown error occurred. Please try again later.");
+              return;
+            case 'create_route':
+              this.msg_box_set("An unknown error occurred. Please try again later.", 1);
+              return;
+            case 'update_route':
+              this.msg_box_set("An unknown error occurred. Please try again later.", 1);
+              return;
+          }
+        }
+      },
+      handle_finally(action) {
+        switch(action) {
+        }
+      },
+      get_operation_by_id(operation_id)
+      {
+        for(let i = 0; i < this.operations.length; i++) {
+            if(this.operations[i].id === operation_id)
+              return this.operations[i];
+        } 
+      },
+      get_html_badge(is_active){
+        if(is_active)
+          return "<span class='badge bg-success'>Active</span>";
+        else
+          return "<span class='badge bg-secondary'>Not Active</span>";
+      },
+      check_change(operation) {
+        if(operation.is_checked)
+        {
+          this.route.operations.push({
+            "id": operation.id,
+            "name": operation.name,
+            "description": operation.description,
+            "order": this.route.operations.length + 1
+          })
+        }
+        else
+        {
+          for(let i = 0; i < this.route.operations.length; i++)
+          {
+            let opn = this.route.operations[i];
+            opn.order = i+1;
+            if(opn.id === operation.id) {
+              this.route.operations.splice(i, 1);
+              i--;
+            } 
+          }
+        }
+      },
+      async submit() {
+        if(this.act === 1)
+          this.submit_form("create_route");
+        else
+          this.submit_form("update_route");
+      },
+      show_create() {
+        this.active_ui = 2;
+        this.act = 1;
+
+        for(let i = 0; i < this.operations.length; i++)
+          this.operations[i].is_checked = false;
+
+        this.route.id = 0;
+        this.route.code = "";
+        this.route.name = "";
+        this.route.description = "";
+        this.route.operations = [];
+      },
+      async show_edit(route) {
+        this.active_ui = 2;
+        this.act = 2;
+        this.route.id = route.id;
+        this.route.code = route.code;
+        this.route.name = route.name;
+        this.route.description = route.description;
+        this.route.operations = [];
+
+        route.operations.sort((a, b) => a.order - b.order);
+
+        for(let i = 0; i < route.operations.length; i++) {
+          let operation = this.get_operation_by_id(route.operations[i].id);
+          this.route.operations.push({
+            "id": operation.id,
+            "name": operation.name,
+            "description": operation.description,
+            "order": route.operations[i].order
+          })
+        }
+
+        for(let i = 0; i <  this.operations.length; i++) {
+          this.operations[i].is_checked = false;
+        }
+
+        for(let i = 0; i <  this.route.operations.length; i++) {
+          for(let j = 0; j <  this.operations.length; j++) {
+            if(this.route.operations[i].id === this.operations[j].id)
+              this.operations[j].is_checked = true;
+          }
+        }
+      }
+    },
+    delimiters: ["{","}"]
+}).mixin(global_mixing).mount('#app');
+</script>
+{% endblock %}

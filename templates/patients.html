@@ -1,0 +1,1055 @@
+{% extends "layout.html" %}
+{% block title %}ทะเบียนผู้ป่วย{% endblock %}
+{% block header %}ทะเบียนผู้ป่วย{% endblock %}
+{% block sub_header %}บันทึก/แก้ไข/ค้นหา ข้อมูลผู้ป่วย{% endblock %}
+{% block app_style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/daterange.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/dataTables.bs5.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/dataTables.bs5-custom.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/select2.min.css') }}" />
+<style>
+.select2 {
+  width:100%!important;
+}
+.select2-container .select2-selection--single {
+  height: calc(1.5em + 0.75rem + 2px); /* Same as Bootstrap's input height */
+}
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+  line-height: calc(1.5em + 0.75rem + 2px); /* Match the line height */
+}
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+  height: calc(1.5em + 0.75rem + 2px); /* Align the arrow with the select box */
+}
+.fc-daygrid-day-events {
+	cursor: pointer;
+}
+.fc-daygrid-event-harness {
+    cursor: pointer;
+}
+.fc-event-main {
+	cursor: pointer;
+}
+
+.v-container {
+  background-color: black; /* Fallback in case no video loads */
+}
+video {
+  width: 243px;
+  height: 291px;
+  object-fit: cover;
+  display:block;
+}
+canvas {
+  border: 1px solid black;
+  /*width: 243px;
+  height: 291px;*/
+  display:block;
+}
+</style>
+{% endblock %}
+{% block content %}
+<div v-show="active_ui === 1" class="row" style="display:none;">
+  <div class="col">
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="mb-2 d-flex align-items-end justify-content-between">
+          <button @click="show_create" class="btn btn-info btn-sm me-2"><span class="icon-add"></span> ผู้ป่วยใหม่</button>
+          <div class="d-flex align-items-center">
+            <div class="input-group">
+              <button class="btn btn-outline-secondary btn-sm me-2" @click="search_patients" >ค้นหา</button>
+              <input type="text" class="form-control form-control-sm" v-model.trim="search_text">
+              <select class="form-select form-select-sm" v-model="search_param">
+                <option value="full_name">ชื่อ-นามสกุล</option>
+                <option value="hn">รหัสผู้ป่วย</option>
+                <option value="mobile">เบอร์มือถือ</option>
+                <option value="id_card">เลขบัตร ปชช</option>
+                <option value="passport">เลข Passport</option>
+                <option value="email">อีเมล</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table id="data-table" class="table table-striped table-bordered dataTable" style="white-space:nowrap;">
+            <thead>
+              <tr>
+                <th>
+                  #
+                </th>
+                <th>
+                  รหัสผู้ป่วย
+                </th>
+                <th>
+                  ชื่อ
+                </th>
+                <th>
+                  เบอร์มือถือ
+                </th>
+                <th>
+                  Email
+                </th>
+                <th>
+                  เพศ
+                </th>
+                <th>
+                  วันที่ลงทะเบียน
+                </th>
+                <th class="text-center">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(pt, index) in patients">
+                <td>{index+1}.</td>
+                <td><div class="me-4">{pt.hn}</div></td>
+                <td><div class="me-4">{name_str(pt.prefix, pt.first_name, pt.middle_name, pt.last_name)}</div></td>
+                <td>{pt.mobile}</td>
+                <td><div class="me-4">{pt.email}</div></td>
+                <td>{gender_str(pt.gender)}</td>
+                <td>{time_str(pt.create_time)}</td>
+                <td class="text-center">
+                  <a @click="show_edit(pt)" :data-bs-toggle="'table-tooltip'" :title="'แก้ไข'" class="text-info cursor-pointer mx-2"><span class="icon-edit"></span></a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div v-show="active_ui === 2" class="row" style="display:none;">
+  <div class="col">
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-3">
+          <h5 class="card-title me-2">ข้อมูลผู้ป่วย</h5>
+          <button class="btn btn-secondary btn-sm" @click="active_ui = 1">ย้อนกลับ</button>
+        </div>
+        <div class="row">
+          <div class="col-3">
+            <img :src="patient.photo" width="81" height="97">
+          </div>
+          <div class="col-4">
+            <div class="text-info"><strong>{agent_status}</strong></div>
+            <div class="text-success"><strong>{card_status}</strong></div>
+            <div>
+              <div id="myBar" class="mb-1" style="
+                  height: 15px;
+                  background-color: rgb(10, 206, 241);
+                  font-size: 70%;
+                  text-align: right;
+                  width: 0%;
+                  ">
+                <label class="TextInput" id="lbBar" style="font-weight: bold;
+                    color:rgb(255, 255, 255);"></label>
+              </div>
+            </div>
+            <div>
+              <div>
+                <button class="btn btn-primary btn-sm me-2" @click="readNIDCard">อ่านบัตร</button>
+                <button class="btn btn-info btn-sm" @click="show_camera_modal">ถ่ายรูป</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <hr/>
+        <div class="row">
+          <div class="col-sm-3 col-12">
+            <div class="mb-3">
+              <label class="form-label">เลขบัตรปชช.</label>
+              <input type="text" class="form-control"  v-model.trim="patient.id_card">
+            </div>
+          </div>
+          <div class="col-sm-3 col-12">
+            <div class="mb-3">
+              <label class="form-label">Passport</label>
+              <input type="text" class="form-control" v-model.trim="patient.passport">
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-3 col-12">
+            <div class="mb-3">
+              <label class="form-label">คำนำหน้า</label>
+              <input type="text" class="form-control" v-model.trim="patient.prefix">
+            </div>
+          </div>
+          <div class="col-sm-3 col-12">
+            <div class="mb-3">
+              <label class="form-label">ชื่อ *</label>
+              <input type="text" class="form-control" v-model.trim="patient.first_name">
+            </div>
+          </div>
+          <div class="col-sm-3 col-12">
+            <div class="mb-3">
+              <label class="form-label">ชื่อกลาง</label>
+              <input type="text" class="form-control" v-model.trim="patient.middle_name">
+            </div>
+          </div>
+          <div class="col-sm-3 col-12">
+            <div class="mb-3">
+              <label class="form-label">นามสกุล *</label>
+              <input type="text" class="form-control" v-model.trim="patient.last_name">
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-3 col-12">
+            <div class="mb-3">
+              <label class="form-label">เพศ</label>
+              <select id="gender" class="form-select">
+                <option value="0">เลือก</option>
+                <option value="1">ชาย</option>
+                <option value="2">หญิง</option>
+                <option value="3">ไม่ระบุ</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-sm-3 col-12">
+            <div class="mb-3">
+              <label class="form-label">วันเกิด</label>
+              <input type="text" id="birth_date" class="form-control">
+            </div>
+          </div>
+          <div class="col-sm-3 col-12">
+            <div class="mb-3">
+              <label class="form-label">กรุ๊ปเลือด</label>
+              <select id="blood_type" class="form-select">
+                <option value="">เลือก</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="AB">AB</option>
+                <option value="O">O</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-sm-3 col-12">
+            <div class="mb-3">
+              <label class="form-label">สัญชาติ *</label>
+              <select class="form-select" id="nationality_id">
+                <option value="0">เลือก</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-sm-3 col-12">
+            <div class="mb-3">
+              <label class="form-label">เชื้อชาติ</label>
+              <input type="text" class="form-control" v-model.trim="patient.race">
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-3 col-12">
+            <div class="mb-3">
+              <label class="form-label">สิทธิการรักษา</label>
+              <select class="form-select" id="right_id">
+                <option value="0">เลือก</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-sm-3 col-12">
+            <div class="mb-3">
+              <label class="form-label">แพ้ยา</label>
+              <input type="text" class="form-control" v-model.trim="patient.drug_allergy">
+            </div>
+          </div>
+          <div class="col-sm-3 col-12">
+            <div class="mb-3">
+              <label class="form-label">โรคประจำตัว</label>
+              <input type="text" class="form-control" v-model.trim="patient.cong_disease">
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-3 col-12">
+            <div class="mb-3">
+              <label class="form-label">ที่อยู่</label>
+              <textarea class="form-control" rows="3" v-model.trim="patient.address"></textarea>
+            </div>
+          </div>
+          <div class="col-sm-3 col-12">
+            <div class="mb-3">
+              <label class="form-label">เบอร์โทรบ้าน</label>
+              <input type="text" class="form-control" v-model.trim="patient.phone">
+            </div>
+          </div>
+          <div class="col-sm-3 col-12">
+            <div class="mb-3">
+              <label class="form-label">เบอร์มือถือ</label>
+              <input type="text" class="form-control" v-model.trim="patient.mobile">
+            </div>
+          </div>
+          <div class="col-sm-3 col-12">
+            <div class="mb-3">
+              <label class="form-label">อีเมล</label>
+              <input type="text" class="form-control" v-model.trim="patient.email">
+            </div>
+          </div>
+          <div class="col-sm-3 col-12">
+            <div class="mb-3">
+              <label class="form-label">Line ID</label>
+              <input type="text" class="form-control" v-model.trim="patient.line_id">
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col">
+            <div class="d-flex gap-2 justify-content-end my-4">
+                <button @click="active_ui = 1" type="button" class="btn btn-outline-secondary">
+                  ยกเลิก
+                </button>
+                <button type="button" class="btn btn-primary" @click="submit">
+                  บันทึก
+                </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div v-show="active_ui === 3" style="display:none;">
+  <div class="row">
+    <div class="col">
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="d-flex align-items-center mb-3">
+            <h5 class="card-title me-2">การนัดหมาย</h5>
+            <button class="btn btn-secondary btn-sm" @click="active_ui = 1">ย้อนกลับ</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" ref="camera_modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+  <div class="modal-dialog">
+      <div class="modal-content">
+          <div class="modal-header">
+              <h5 class="modal-title" id="staticBackdropLabel">
+              Take a Photo
+              </h5>
+              <button type="button" class="btn-close" @click="hide_camera_modal" aria-label="Close"></button>
+          </div>
+          <div v-show="modal_state === 1">
+            <div class="modal-body">
+              <div class="row">
+                <div class="col">
+                  <div class="mb-3">
+                    <label class="form-label">Select Camera:</label>
+                    <select class="form-select" v-model="device_id" @change="start_camera">
+                      <option v-for="device in devices" :key="device.deviceId" :value="device.deviceId">
+                          { device_str(device) }
+                      </option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col">
+                  <div class="mb-3">
+                    <div class="d-flex v-container justify-content-center">
+                      <video ref="video" autoplay></video>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+                <button @click="hide_camera_modal" type="button" class="btn btn-secondary">
+                  Cancel
+                </button>
+                <button @click="take_picture" type="button" class="btn btn-primary">
+                  Take Photo
+                </button>
+            </div>
+          </div>
+          <div v-show="modal_state === 2">
+            <div class="modal-body">
+              <div class="row">
+                <div class="col">
+                  <div class="mb-3">
+                    <label class="form-label">Use this photo?</label>
+                    <div class="d-flex v-container justify-content-center">
+                      <canvas ref="canvas"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+                <button @click="modal_state = 1" type="button" class="btn btn-secondary">
+                  Cancel
+                </button>
+                <button @click="use_photo" type="button" class="btn btn-primary">
+                  OK
+                </button>
+            </div>
+          </div>
+      </div>
+  </div>
+</div>
+{% endblock %}
+{% block app_script %}
+<script src="{{ url_for('static', filename='assets/js/moment.min.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/daterange.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/dataTables.min.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/dataTables.bootstrap.min.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/select2.min.js') }}"></script>
+<script>
+const { createApp } = Vue;
+
+// Create Vue App
+createApp({
+  data() {
+    return {
+      active_ui:1,
+      search_param: "full_name",
+      search_text: "",
+      patients: [],
+      wSocket: null,
+      debugFlag: false,
+      reader_name: "",
+      agent_status: "Agent Status: None",
+      card_status: "Card Status: Unknown",
+      edit_photo: false,
+      patient: {
+        hn: "",
+        id_card: "",
+        photo: "{{ url_for('static', filename='assets/images/pnidcard.jpg') }}",
+        passport: "",
+        prefix: "",
+        first_name: "",
+        middle_name: "",
+        last_name: "",
+        gender: 0,
+        birth_date: "",
+        blood_type: "",
+        nationality_id: 0,
+        nationality: "",
+        race: "",
+        right_id: 0,
+        right: "",
+        drug_allergy: "",
+        cong_disease: "",
+        address: "",
+        phone: "",
+        mobile: "",
+        email: "",
+        line_id: ""
+      },
+      patient0: null,
+      modal_state: 1,
+      camera_modal: null,
+      videoWidth: 243,  // Width of the video container
+      videoHeight: 291, // Height of the video container
+      devices: [],
+      device_id: "",
+      video_stream: null,
+      prefix_dict: {},
+      nationality_dict: {},
+      race_dict: {},
+
+    };
+  },
+  mounted() {
+    this.patient0 = {...this.patient};
+    this.init_ui();
+  },
+  methods: {
+    async init_ui() {
+      this.camera_modal = new bootstrap.Modal(this.$refs.camera_modal, { keyboard: false });
+      this.get_cameras();
+      
+      //Init select2 components
+      $("#gender").select2();
+      $("#blood_type").select2();
+      $("#nationality_id").select2();
+      $("#right_id").select2();
+
+      this.get_nationalities();
+      this.get_rights();
+      this.get_patients();
+
+      $("#birth_date").daterangepicker({
+  				singleDatePicker: true,
+          showDropdowns: true,
+          minYear: 1924,
+  				locale: {
+    				format: "DD/MM/YYYY",
+  				},
+			});
+      
+      $(window).on('unload', this.onPageUnload);
+      this.initWebsocket();
+      
+    },
+    readNIDCard() {
+      this.clear_form();
+      this.selectReader();
+      const JS_OBJ = {
+        Command: "ReadIDCard",
+        IDNumberRead: true,
+        IDTextRead: true,
+        IDATextRead: false,
+        IDPhotoRead: true,
+      };
+      var jsonStr = JSON.stringify(JS_OBJ);
+      this.wSocketSend(jsonStr);
+    },
+    initWebsocket() {
+      this.wSocket = new WebSocket("ws://localhost:14820/TDKWAgent");
+      this.wSocket.onopen = function () {
+        // Web Socket is connected, send data using send()
+        if (this.debugFlag) {
+          console.log("WebSocket: onopen() event called.");
+        }
+      };
+
+      this.wSocket.onmessage = this.onGetMessage;
+
+      this.wSocket.onclose = function () {
+        if (this.debugFlag) {
+          console.log("WebSocket: onclose() event called.");
+        }
+      };
+
+      this.wSocket.onerror = function (evt) {
+        if (this.debugFlag) {
+          console.log("WebSocket: onerror() event called.");
+        }
+      };
+    },
+    onPageUnload() {
+      if (this.wSocket != null) this.wSocket.close();
+    },
+    wSocketSend(json_Str) {
+      if (this.debugFlag) {
+        console.log(">" + JSON.parse(json_Str).Command);
+      }
+      this.wSocket.send(json_Str);
+    },
+    setAutoReadOptions() {
+      const JS_OBJ = {
+        Command: "SetAutoReadOptions",
+        AutoRead: false,
+        IDNumberRead: true,
+        IDTextRead: true,
+        IDATextRead: false,
+        IDPhotoRead: true
+      };
+      var jsonStr = JSON.stringify(JS_OBJ);
+      this.wSocketSend(jsonStr);
+    },
+    getReaderlist() {
+      const JS_OBJ = {
+        Command: "GetReaderList",
+      };
+      var jsonStr = JSON.stringify(JS_OBJ);
+      this.wSocketSend(jsonStr);
+    },
+    selectReader() {
+      if(this.reader_name == "Reader not found"){
+        this.reader_name = "";
+      }
+      console.log("READER: " + this.reader_name);
+      const JS_OBJ = {
+        Command: "SelectReader",
+        ReaderName: this.reader_name,
+      };
+      var jsonStr = JSON.stringify(JS_OBJ);
+      this.wSocketSend(jsonStr);
+    },
+    onGetMessage(evt) {
+      var msgObj = JSON.parse(evt.data);
+      //console.log(msgObj);
+
+      if (msgObj.Message == "AgentStatusE") {
+        if (msgObj.Status == 1) {
+          this.setAutoReadOptions();
+          this.getReaderlist();
+          this.agent_status = "Agent: " + msgObj.AgentInfo;
+        } else {
+          this.agent_status = "Agent: Error";
+          console.log("ERROR Code :" + msgObj.Status);
+        }
+      }
+
+      if (msgObj.Message == "CardStatusChangeE") {
+        if (this.debugFlag) {
+          console.log(
+            "<CardStatusChangeE: " +
+            "(" +
+            msgObj.Status +
+            ")" +
+            " ReaderName: " +
+            "(" +
+            msgObj.ReaderName +
+            ")"
+          );
+        }
+
+        if (msgObj.Status == -1004) {
+          console.log("ERROR Code :" + msgObj.Status);
+          return;
+        } else if (msgObj.Status == 1) {
+          //resetTimer();
+          //startTimer();
+          //clearScreen();
+          this.card_status = "Card Status: Present";
+        } else if (msgObj.Status == -16) {
+          this.card_status = "Card Status: Absent";
+        } else if (msgObj.Status == 0) {
+          this.card_status = "Card Status: Unknown";
+          //msgObj.ReaderName
+        } else {
+          console.log("ERROR Code :" + msgObj.Status);
+        }
+        msgObj.ReaderName = "";
+      }
+
+      if (msgObj.Message == "ReadingProgressE") {
+        if (msgObj.Status == 0) {
+          $("#myBar").css("background-color", 'rgb(10, 206, 241)');
+          $("#myBar").css("width", msgObj.Progress + "%");
+          $("#lbBar").html(msgObj.Progress + "%");
+          if (this.debugFlag) {
+            console.log(
+              "<ReadingProgressE" +
+              "(" +
+              msgObj.Status +
+              "): " +
+              msgObj.Progress +
+              "%"
+            );
+          }
+        }
+        if (msgObj.Status == -1) {
+          $("#myBar").style.backgroundColor = "red";
+        }
+      }
+      
+      if (msgObj.Message == "GetReaderListR") {
+        var readerData = msgObj.ReaderList;
+        if (msgObj.Status > 0) {
+          this.reader_name = readerData[0];
+          console.log(this.reader_name);
+        } else {
+          if (msgObj.Status == -3 || msgObj.Status == 0) {
+            console.log("Reader not found")     
+          } else {
+            console.log("ERROR Code :" + msgObj.Status);
+          }
+        }
+      }
+
+      if (msgObj.Message == "SelectReaderR") {
+        var strReader = msgObj.ReaderName;
+        if (parseInt(msgObj.Status) > 0) {
+          console.log("Reader selected")
+        } else {
+          if (strReader == "") {
+            strReader = "Reader";
+          }
+
+          console.log(strReader + ": Not selected");
+          if (msgObj.Status == -3) {
+            console.log("Reader not found");
+          }
+          console.log("ERROR Code :" + msgObj.Status);
+        }
+      }
+
+      if (msgObj.Message == "ReadIDCardR") {
+        this.putToScreen(msgObj);
+      }
+    },
+    putToScreen(jsObj)
+    {
+      var IDText = jsObj.ID_Text;
+      var IDPhoto = jsObj.ID_Photo;
+
+      var NIDData = IDText.split("#");
+
+      this.patient.id_card = NIDData[0].trim();
+      this.patient.prefix = NIDData[1].trim();
+      this.patient.first_name = NIDData[2].trim();
+      this.patient.middle_name = NIDData[3].trim();
+      this.patient.last_name = NIDData[4].trim();
+      let sex_id = NIDData[17].trim();
+      if (NIDData[17] == "1" || NIDData[17] == "2") {
+        $("#gender").val(NIDData[17]);
+      }
+      else $("#gender").val(3);
+      $("#gender").trigger("change");
+
+      $("#birth_date").val(this.add_slash(NIDData[18].trim()));
+
+      this.patient.address = NIDData[9] +
+            " " +
+            NIDData[10] +
+            " " +
+            NIDData[11] +
+            " " +
+            NIDData[12] +
+            " " +
+            NIDData[13] +
+            "\r\n" +
+            NIDData[14] +
+            " " +
+            NIDData[15] +
+            " " +
+            NIDData[16];
+      
+      var base64str = IDPhoto;
+        if (base64str != null) {
+          this.edit_photo = true;
+          this.patient.photo = "data:image/png;base64," + base64str + "";
+        } else {
+          this.patient.photo = this.patient0.photo;
+        }
+
+        if (this.debugFlag) {
+          console.log("Reading is finished");
+        }
+
+    },
+    add_slash(thai_date) {
+      var date = thai_date.substring(6, 8);
+      var month = thai_date.substring(4, 6);
+      var year = thai_date.substring(0, 4) - 543;
+      return date + "/" + month + "/" + year;
+    },
+    show_camera_modal() {
+      this.modal_state = 1;
+      this.start_camera();
+      this.camera_modal.show();
+    },
+    hide_camera_modal() {
+      this.stop_camera();
+      this.camera_modal.hide();
+    },
+    async get_cameras() {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        this.devices = devices.filter(device => device.kind === 'videoinput');
+                        
+        // Select the first camera by default
+        if (this.devices.length > 0) {
+          this.device_id = this.devices[0].deviceId;
+        }
+      } 
+      catch (error) {
+        console.error('Error fetching video devices:', error);
+      }
+    },
+    async start_camera() {
+      if (this.video_stream) {
+          // Stop the previous stream if a new camera is selected
+          this.video_stream.getTracks().forEach(track => track.stop());
+      }
+      try {
+          // Request the stream for the selected camera
+          this.video_stream = await navigator.mediaDevices.getUserMedia({
+              video: { deviceId: this.device_id }
+          });
+          this.$refs.video.srcObject = this.video_stream;
+      } catch (error) {
+          console.error('Error accessing camera:', error);
+      }
+    },
+    async stop_camera() {
+      if (this.video_stream) {
+          // Stop the previous stream if a new camera is selected
+          this.video_stream.getTracks().forEach(track => track.stop());
+      }
+    },
+    take_picture() {
+      const video = this.$refs.video;
+      const canvas = this.$refs.canvas;
+      const context = canvas.getContext('2d');
+      
+      // Set canvas size to match the desired output size
+      canvas.width = this.videoWidth;  // 243
+      canvas.height = this.videoHeight;  // 291
+
+      // Calculate the aspect ratio of the video and canvas
+      const videoAspectRatio = video.videoWidth / video.videoHeight;
+      const canvasAspectRatio = this.videoWidth / this.videoHeight;
+
+      // Variables for cropping the video
+      let drawWidth, drawHeight, offsetX = 0, offsetY = 0;
+
+      if (canvasAspectRatio > videoAspectRatio) {
+        // If the canvas is wider relative to its height than the video:
+        drawWidth = video.videoWidth;
+        drawHeight = video.videoWidth / canvasAspectRatio;
+        offsetY = (video.videoHeight - drawHeight) / 2;  // Center vertically
+      } else {
+        // If the canvas is taller relative to its width than the video:
+        drawHeight = video.videoHeight;
+        drawWidth = video.videoHeight * canvasAspectRatio;
+        offsetX = (video.videoWidth - drawWidth) / 2;  // Center horizontally
+      }
+
+      // Draw the correctly scaled and cropped portion of the video to the canvas
+      context.drawImage(
+        video, 
+        offsetX, offsetY,    // Where to start cropping the video
+        drawWidth, drawHeight,  // Width and height of the cropped portion
+        0, 0,                 // Where to place it on the canvas (start at the top-left corner)
+        this.videoWidth, this.videoHeight  // Draw to fill the entire canvas
+      );
+
+      this.modal_state = 2;
+    },
+    use_photo() {
+      this.edit_photo = true;
+      this.patient.photo = this.$refs.canvas.toDataURL('image/png');
+      this.hide_camera_modal();
+    },
+    async search_patients() {
+      $('#data-table').DataTable().destroy();
+      try{
+        this.patients = [];
+        const res = await axios.post("/patients/get", {search_param:this.search_param, search_text:this.search_text});
+        this.patients = res.data.data_list;
+      }
+      catch(error)
+      {
+        console.log(error);
+      }
+      finally {
+        Vue.nextTick(() => {
+          $("#data-table").DataTable({
+            autoWidth: false,
+            pageLength: 50,
+            lengthChange: false,
+            searching: false,
+          });
+          this.init_tooltips();
+        });
+      }
+    },
+    async get_patients() {
+      $('#data-table').DataTable().destroy();
+      try {
+          this.patients = [];
+          const res = await axios.post("/patients/get", {search_param:this.search_param, search_text:""});
+          this.patients = res.data.data_list;
+      }
+      catch(error) {
+        console.log(error);
+      }
+      finally {
+        Vue.nextTick(() => {
+          $("#data-table").DataTable({
+            pageLength: 50,
+            lengthChange: false,
+            searching: false,
+          });
+          this.init_tooltips();
+        });
+      }
+    },
+    async get_nationalities() {
+        try {
+          $('#nationality_id').empty();
+          $('#nationality_id').append(new Option("เลือก", 0, false, false));
+          $('#nationality_id').val(0);
+
+          let nationalities = await MyApp.get_nationalities();
+          nationalities.sort((a, b) => a.name.localeCompare(b.name));
+          nationalities.forEach(function(option) {
+            let newOption = new Option(option.name, option.id, false, false);
+            $('#nationality_id').append(newOption);
+          });
+
+          //Map to a dictionary
+          this.nationality_dict = Object.assign({}, ...nationalities.map((x) => ({[x.id]: x.name})));
+        }
+        catch(error) {
+          console.log(error);
+        }
+
+        $('#nationality_id').trigger("change");
+    },
+    async get_rights() {
+        try {
+          $('#right_id').empty();
+          $('#right_id').append(new Option("เลือก", 0, false, false));
+          $('#right_id').val(0);
+
+          let rights = await MyApp.get_rights();
+          rights.forEach(function(option) {
+            let newOption = new Option(option.name, option.id, false, false);
+            $('#right_id').append(newOption);
+          });
+
+          //Map to a dictionary
+          this.right_dict = Object.assign({}, ...rights.map((x) => ({[x.id]: x.name})));
+        }
+        catch(error) {
+          console.log(error);
+        }
+
+        $('#right_id').trigger("change");
+    },
+    clear_form() {
+      MyApp.copy_vals(this.patient0, this.patient);
+
+      $("#gender").val(this.patient.gender);
+      $('#gender').trigger('change');
+
+      $("#blood_type").val(this.patient.blood_type);
+      $('#blood_type').trigger('change');
+
+      $('#nationality_id').val(this.patient.nationality_id);
+      $('#nationality_id').trigger('change');
+
+      $('#right_id').val(this.patient.right_id);
+      $('#right_id').trigger('change');
+    },
+    show_create() {
+      this.edit_photo = false;
+      this.clear_form();
+      this.active_ui = 2;
+    },
+    readFileAsDataURL(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    },
+    async show_edit(pt) {
+      this.edit_photo = false;
+      MyApp.copy_vals(pt, this.patient, ["photo"]);
+
+      $("#gender").val(this.patient.gender);
+      $('#gender').trigger('change');
+
+      $("#blood_type").val(this.patient.blood_type);
+      $('#blood_type').trigger('change');
+
+      $('#nationality_id').val(this.patient.nationality_id);
+      $('#nationality_id').trigger('change');
+
+      $('#right_id').val(this.patient.right_id);
+      $('#right_id').trigger('change');
+
+      let bd = new Date(MyApp.iso_date_str(this.patient.birth_date));
+      $("#birth_date").data('daterangepicker').setStartDate(bd);
+      $("#birth_date").data('daterangepicker').setEndDate(bd);
+
+      try {
+        const res = await axios.post("/patients/get_photo", {"hn": pt.hn}, {responseType: 'blob'});
+        const base64String = await this.readFileAsDataURL(res.data);
+        this.patient.photo = base64String;
+      }
+      catch(error) {
+        console.log(error);
+        this.patient.photo = this.patient0.photo;
+      }
+
+      this.active_ui = 2;
+    },
+    async submit() {
+      this.patient.birth_date = $('#birth_date').val();
+      this.patient.gender = parseInt($("#gender").val());
+      this.patient.blood_type = $("#blood_type").val();
+      this.patient.nationality_id = parseInt($('#nationality_id').val());
+      this.patient.right_id = parseInt($('#right_id').val());
+
+      if(this.patient.id_card === "" && this.patient.passport === "")
+      {
+        alert("โปรดกรอกเลขบัตรปชช. หรือ Passport")
+        return;
+      }
+      if(this.patient.first_name === "")
+      {
+        alert("โปรดระบุชื่อ")
+        return;
+      }
+      if(this.patient.last_name === "")
+      {
+        alert("โปรดระบุนามสกุล")
+        return;
+      }
+      if(this.patient.nationality_id === 0)
+      {
+        alert("โปรดเลือกสัญชาติ")
+        return;
+      }
+      if(this.patient.right_id === 0)
+      {
+        alert("โปรดเลือกสิทธิ์การรักษา")
+        return;
+      }
+
+      this.patient.nationality = this.nationality_dict[this.patient.nationality_id];
+      this.patient.right = this.right_dict[this.patient.right_id];
+
+      let patient = {...this.patient};
+
+      if(this.edit_photo) {
+        //Get mime_type and check if photo is base64 format
+        mime_type = MyApp.get_mime_type(patient.photo);
+        if(mime_type !== null)
+        {
+          if(mime_type !== "image/jpeg" && mime_type !== "image/png")
+          {
+            alert("Only jpeg and png images are allowed");
+            return;
+          }
+        }
+        else patient.photo = "";
+      }
+      else patient.photo = "";
+
+      let url = (patient.hn === "") ? "/patients/create" : "/patients/update";
+      try {
+        const res = await axios.post(url, patient);
+        if(res.data.status == "T"){
+          await this.get_patients();
+          this.active_ui = 1;
+        }
+        else {
+          console.log(res.data.err_message);
+        }
+      }
+      catch(error) {
+        console.log(error);
+      }
+    },
+    device_str(device)
+    {
+      return device.label || `Camera ${device.deviceId}`;
+    },
+    name_str(prefix, first_name, middle_name, last_name)
+    {
+      return (middle_name === "")? `${prefix} ${first_name} ${last_name}` : `${prefix} ${first_name} ${middle_name} ${last_name}`; 
+    },
+    gender_str(code)
+    {
+      return MyApp.gender_dict[code];
+    },
+    nationality_str(id)
+    {
+      return this.nationality_dict[id];
+    },
+    right_str(id)
+    {
+      return this.right_dict[id];
+    },
+    time_str(utc_time_str) {
+      return MyApp.local_time_str2(utc_time_str);
+    }
+  },
+  delimiters: ["{","}"]
+}).mixin(global_mixing).mount("#app");
+</script>
+{% endblock %}

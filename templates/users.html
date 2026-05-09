@@ -1,0 +1,523 @@
+{% extends "layout.html" %}
+{% block title %}ผู้ใช้งาน{% endblock %}
+{% block header %}ผู้ใช้งาน{% endblock %}
+{% block sub_header %}เพิ่มหรืออัพเดทผู้ใข้งาน{% endblock %}
+{% block content %}
+<div v-show="active_ui === 1" class="row">
+  <div class="col-12">
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="mb-2 d-flex align-items-end justify-content-between">
+          <h5 class="card-title">ผู้ใช้งานในระบบ</h5>
+          <button @click="show_create" class="btn btn-danger btn-sm"><span class="icon-add"></span> ผู้ใช้งาน&nbsp;</button>
+        </div>
+        <div class="table-responsive">
+          <table id="data-table" class="table table-striped table-bordered dataTable" style="white-space:nowrap;">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>
+                    ชื่อ
+                </th>
+                <th>
+                    อีเมล
+                </th>
+                <th>
+                  เบอร์โทร
+                </th>
+                <th>
+                  สังกัด
+                </th>
+                <th>
+                  สร้างเมื่อ
+                </th>
+                <th class="text-center">
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(user, index) in users">
+                <td>{index+1}.</td>
+                <td>{user.prefix} {user.first_name} {user.last_name}</td>
+                <td>{user.username}</td>
+                <td>{user.phone}</td>
+                <td>{get_site_name(user.site_id)}</td>
+                <td>{user.create_time}</td>
+                <td class="text-center">
+                  <a @click="show_edit(user)" :data-bs-toggle="'table-tooltip'" :title="'แก้ไข'" class="text-info cursor-pointer mx-2"><span class="icon-edit"></span></a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div v-show="active_ui === 2" class="row" style="display:none;">
+  <div class="col-12">
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="card-title">เพิ่มผู้ใช้งานใหม่</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-sm-6">
+            <div class="row">
+              <div class="col-sm-4">
+                <div class="mb-3">
+                  <label class="form-label">คำนำหน้า</label>
+                  <select v-model="user.prefix" class="form-select">
+                    <option value="">เลือก</option>
+                    <option value="นาย">นาย</option>
+                    <option value="นาง">นาง</option>
+                    <option value="นางสาว">นางสาว</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-sm-4">
+                <div class="mb-3">
+                  <label class="form-label">ชื่อ</label>
+                  <input type="text" class="form-control" v-model.trim="user.first_name"/>
+                </div>
+              </div>
+              <div class="col-sm-4">
+                <div class="mb-3">
+                  <label class="form-label">นามสกุล</label>
+                  <input type="text" class="form-control" v-model.trim="user.last_name"/>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="mb-3">
+                <label class="form-label">อีเมล</label>
+                <input type="text" class="form-control" v-model.trim="user.username"/>
+              </div>
+            </div>
+            <div class="row">
+              <div class="mb-3">
+                <label class="form-label">เบอร์โทร</label>
+                <input type="text" class="form-control" v-model.trim="user.phone"/>
+              </div>
+            </div>
+            <div class="row">
+              <div class="mb-3">
+                <label class="form-label">เลขบัตรประชาชน</label>
+                <input type="text" class="form-control" v-model.trim="user.id_card"/>
+              </div>
+            </div>
+            <div class="row">
+              <div class="mb-3">
+                <label class="form-label">ที่อยู่</label>
+                <input type="text" class="form-control" v-model.trim="user.address"/>
+              </div>
+            </div>
+            <div class="row">
+                <div class="mb-3">
+                  <label class="form-label">สังกัด</label>
+                  <select v-model="user.site_id" class="form-select">
+                    <option value="0">เลือก</option>
+                    <option v-for="s in sites" :value="s.id">
+                      {s.name}
+                    </option>
+                  </select>
+                </div>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="row mb-4">
+              <div class="col">
+                <div class="row mb-3">
+                  <div class="col-6">
+                    <label class="form-label">โอเปอร์เรชัน</label>
+                    <select v-model="opn_id" class="form-select">
+                      <option value="">เลือก</option>
+                      <option v-for="opn in operations" :value="opn.id">
+                        {opn.id} {opn.name}
+                      </option>
+                    </select>
+                  </div>
+                  <div class="col-4">
+                    <label class="form-label">บทบาท</label>
+                    <select v-model="role_type" class="form-select">
+                      <option value="-1">เลือก</option>
+                      <option value="0">System Admin</option>
+                      <option value="1">Operator</option>
+                      <option value="2">Supervisor</option>
+                      <option value="3">Sup & Opt</option>
+                    </select>
+                  </div>
+                  <div class="col-2">
+                    <label class="form-label">&nbsp;</label>
+                    <div><a @click="add_role()" class="btn btn-primary"><span class="icon-plus"></span></a></div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col">
+                    <label class="form-label">บทบาทของผู้ใช้งาน</label>
+                    <div class="table-outer">
+                      <div class="table-responsive">
+                        <table class="table table-striped table-bordered align-middle m-0">
+                          <thead>
+                            <tr>
+                              <th>รหัส</th>
+                              <th>
+                                <div class="d-flex align-items-center">
+                                  <span class="icon-add_task me-2 fs-4"></span>
+                                  โอเปอร์เรชัน
+                                </div>
+                              </th>
+                              <th>
+                                <div class="d-flex align-items-center">
+                                  <span class="icon-published_with_changes me-2 fs-4"></span>
+                                  บทบาท
+                                </div>
+                              </th>
+                              <th>
+                                <div class="d-flex align-items-center">
+                                  <span class="icon-settings me-2 fs-4"></span>
+                                  Action
+                                </div>
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr v-for="(role, index) in user.roles">
+                              <td>{role.opn_id}</td>
+                              <td>{get_opn_name(role.opn_id)}</td>
+                              <td>{get_role_name(role.role_type)}</td>
+                              <td>
+                                <a @click="remove_role(role.opn_id)" class="btn btn-outline-primary btn-sm rounded-circle"><span class="icon-clear"></span></a>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="my-3 d-flex align-items-end justify-content-center">
+          <button @click="active_ui = 1" class="btn btn-outline-secondary mx-2">Cancel</button> <button @click="submit" class="btn btn-danger mx-2">Submit</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block app_script %}
+<script>
+const { createApp } = Vue;
+
+createApp({
+    data() {
+      return {
+        active_ui: 1,
+        sites: [],
+        operations:[],
+        opn_id: "",
+        role_type: -1,
+        users: [],
+        act: 1,
+        user: {
+          id: 0,
+          id_card: "",
+          prefix: "",
+          first_name: "",
+          last_name: "",
+          username: "",
+          phone: "",
+          address: "",
+          site_id: 0,
+          roles: [],
+          is_active:true
+        },
+        user0: null,
+      }
+    },
+    mounted() {
+      this.user0 = { ...this.user }
+      this.submit_form("get_sites", false);
+      this.submit_form("get_operations", false);
+      this.submit_form("get_users", false);
+    },
+    methods: {
+      get_api_endpoint(action) {
+        switch (action) {
+          case "get_operations":
+            return "/operations/get";
+          case "get_sites":
+            return "/sites/get";
+          case "get_users":
+            return "/users/get";
+          case "create_user":
+            return "/users/create";
+          case "update_user":
+            return "/users/update";
+        }
+      },
+      validate_input(action) {
+        let is_valid = true;
+        switch (action) {
+          case "get_operations":
+            return true;
+          case "get_sites":
+            return true;
+          case "get_users":
+            return true;
+          case "create_user":
+            if(this.user.id_card === "")
+            {
+              console.log("ID Card is blank");
+              is_valid = false;
+            }
+            if(this.user.prefix === "")
+            {
+              console.log("Please select a prefix");
+              is_valid = false;
+            }
+            if(this.user.first_name === "")
+            {
+              console.log("First name is blank");
+              is_valid = false;
+            }
+            if(this.user.last_name === "")
+            {
+              console.log("Last name is blank");
+              is_valid = false;
+            }
+            if(this.user.phone === "")
+            {
+              console.log("Phone is blank");
+              is_valid = false;
+            }
+            if(this.user.address === "")
+            {
+              console.log("Address is blank");
+              is_valid = false;
+            }
+            if(this.user.site_id == 0)
+            {
+              console.log("โปรดเลือกสังกัด");
+              is_valid = false;
+            }
+            return is_valid;
+          case "update_user":
+            if(this.user.id_card === "")
+            {
+              console.log("ID Card is blank");
+              is_valid = false;
+            }
+            if(this.user.first_name === "")
+            {
+              console.log("First name is blank");
+              is_valid = false;
+            }
+            if(this.user.last_name === "")
+            {
+              console.log("Last name is blank");
+              is_valid = false;
+            }
+            if(this.user.phone === "")
+            {
+              console.log("Phone is blank");
+              is_valid = false;
+            }
+            if(this.user.address === "")
+            {
+              console.log("Address is blank");
+              is_valid = false;
+            }
+            if(this.user.site_id == 0)
+            {
+              console.log("โปรดเลือกสังกัด");
+              is_valid = false;
+            }
+            return is_valid;
+        }
+      },
+      async get_form_data(action) {
+        switch (action) {
+          case "get_operations":
+            return {};
+          case "get_sites":
+            return {};
+          case "get_users":
+            return {};
+          case "create_user":
+            await this.msg_box_show(this.with_loading("Submitting..."), 0);
+            return this.user;
+          case "update_user":
+            await this.msg_box_show(this.with_loading("Submitting..."), 0);
+            return this.user;
+        }
+      },
+      process_response_data(action, data) {
+        switch (action) {
+          case "get_operations":
+            let operations = data.data_list;  
+            operations.sort((a, b) => a.id.localeCompare(b.id));
+            this.operations = operations;
+            return;
+          case "get_sites":
+            let sites = data.data_list;  
+            sites.sort((a, b) => a.name.localeCompare(b.name));
+            this.sites = sites;
+            return;
+          case "get_users":
+            $('#data-table').DataTable().destroy();
+            this.users = data.data_list;
+            Vue.nextTick(() => {
+              $('#data-table').DataTable({lengthChange: false, searching: false, pageLength: 10});
+              this.init_tooltips();
+            });
+            return;
+          case "create_user":
+            this.submit_form("get_users", false);
+            this.hide_msg_box();
+            this.active_ui = 1;
+            return;
+          case "update_user":
+            this.submit_form("get_users", false);
+            this.hide_msg_box();
+            this.active_ui = 1;
+            return;
+        }
+      },
+      handle_response_error(action, error) {
+        response = error.response;
+        if(response) {
+          //We get response from the server
+          if(response.data.status === "I" || response.data.status === "U") window.location.href = "/logout";         
+          switch (action) {
+            case "get_operations":
+              console.log(response.data.err_message);
+              return;
+            case "get_sites":
+              console.log(response.data.err_message);
+              return;
+            case "get_users":
+              console.log(response.data.err_message);
+              return;
+            case "create_user":
+              this.msg_box_set(response.data.err_message, 1);
+              return;
+            case "update_user":
+              this.msg_box_set(response.data.err_message, 1);
+              return;
+          }
+        }
+        else {
+          //The Server does not respond
+          switch (action) {
+            case "get_operations":
+              console.log("An unknown error occurred. Please try again later.");
+              return;
+            case "get_sites":
+              console.log("An unknown error occurred. Please try again later.");
+              return;
+            case "get_users":
+              console.log("An unknown error occurred. Please try again later.");
+              return;
+            case "create_user":
+              this.msg_box_set("An unknown error occurred. Please try again later.", 1);
+              return;
+            case "update_user":
+              this.msg_box_set("An unknown error occurred. Please try again later.", 1);
+              return;
+          }
+        }
+      },
+      handle_finally(action) {
+        switch(action) {
+        }
+      },
+      add_role() {
+        if(this.opn_id === "")
+        {
+          alert("Please select an operation");
+          return;
+        }
+        if(this.role_type == -1)
+        {
+          alert("Please select a role type");
+          return;
+        }
+
+        let is_found = false;
+        for(let i = 0; i < this.user.roles.length; i++)
+        {
+          if(this.user.roles[i].opn_id === this.opn_id)
+          {
+            this.user.roles[i].role_type = parseInt(this.role_type);
+            return;
+          }    
+        }
+
+        this.user.roles.push({opn_id: this.opn_id, role_type: parseInt(this.role_type)});
+
+      },
+      remove_role(opn_id) {
+        for(let i = 0; i < this.user.roles.length; i++)
+        {
+          if(this.user.roles[i].opn_id === opn_id)
+          {
+            this.user.roles.splice(i, 1);
+            return;
+          }    
+        }
+      },
+      get_opn_name(opn_id)
+      {
+        for(let i = 0; i < this.operations.length; i++)
+        {
+          if(this.operations[i].id === opn_id)
+          {
+            return this.operations[i].name;
+          }    
+        }
+      },
+      get_site_name(side_id)
+      {
+        for(let i = 0; i < this.sites.length; i++)
+        {
+          if(this.sites[i].id === side_id)
+          {
+            return this.sites[i].name;
+          }    
+        }
+      },
+      get_role_name(role_type)
+      {
+        return MyApp.role_type_dict[role_type];
+      },
+      async submit() {
+        if(this.act === 1)
+          this.submit_form("create_user");
+        else
+          this.submit_form("update_user");
+      },
+      show_create() {
+        MyApp.copy_vals(this.user0, this.user, ["roles"]);
+        this.user.roles = [];
+        this.act = 1;
+        this.active_ui = 2;
+      },
+      async show_edit(user) {
+        MyApp.copy_vals(user, this.user, ["roles"]);
+        if(!(user.roles))
+          this.user.roles = [];
+        else
+          this.user.roles = [...user.roles];
+        this.act = 2;
+        this.active_ui = 2;
+      }
+    },
+    delimiters: ["{","}"]
+}).mixin(global_mixing).mount('#app');
+</script>
+{% endblock %}

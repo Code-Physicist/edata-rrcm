@@ -1,0 +1,598 @@
+{% extends "layout.html" %}
+{% block title %}สถานบริการ{% endblock %}
+{% block header %}สถานบริการ{% endblock %}
+{% block sub_header %}จัดการสถานบริการ{% endblock %}
+{% block app_style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/select2.min.css') }}" />
+<style>
+.select2 {
+  width:100%!important;
+}
+.select2-container .select2-selection--single {
+  height: calc(1.5em + 0.75rem + 2px); /* Same as Bootstrap's input height */
+}
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+  line-height: calc(1.5em + 0.75rem + 2px); /* Match the line height */
+}
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+  height: calc(1.5em + 0.75rem + 2px); /* Align the arrow with the select box */
+}
+</style>
+{% endblock %}
+{% block content %}
+<div v-show="active_ui === 1" class="row">
+  <div class="col-12">
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="mb-2 d-flex align-items-end justify-content-between">
+          <h5 class="card-title">สถานบริการในระบบ</h5>
+          <button @click="show_create" class="btn btn-danger btn-sm"><span class="icon-add"></span> สถานบริการ&nbsp;</button>
+        </div>
+        <div class="table-responsive">
+          <table id="data-table" class="table table-striped table-bordered dataTable" style="white-space:nowrap;">
+            <thead>
+              <tr>
+                <th>
+                  #
+                </th>
+                <th>
+                  <div>
+                    รหัส
+                  </div>
+                </th>
+                <th>
+                  <div>
+                    ชื่อ
+                  </div>
+                </th>
+                <th>
+                  <div>
+                    ที่อยู่
+                  </div>
+                </th>
+                <th>
+                  <div>
+                    สร้างเมื่อ
+                  </div>
+                </th>
+                <th class="text-center">
+                  <div class="text-center">
+                    Action
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(site, index) in sites">
+                <td>{index+1}.</td>
+                <td>{site.code}</td>
+                <td>{site.name}</td>
+                <td>{site.address} {site.tambon} {site.amphur} {site.province} {site.zip_code}</td>
+                <td>{site.create_time}</td>
+                <td class="text-center">
+                  <a @click="show_edit(site)" :data-bs-toggle="'table-tooltip'" :title="'แก้ไข'" class="text-info cursor-pointer mx-2"><span class="icon-edit"></span></a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div v-show="active_ui === 2" class="row" style="display:none;">
+  <div class="col-12">
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="card-title">เพิ่มสถานบริการใหม่</h5>
+      </div>
+      <div class="card-body">
+        <div class="row mb-4">
+          <div class="col-sm-6">
+            <div class="row">
+              <div class="mb-3">
+                <label class="form-label">รหัส</label>
+                <input type="text" class="form-control" v-model.trim="site.code"/>
+              </div>
+            </div>
+            <div class="row">
+              <div class="mb-3">
+                <label class="form-label">ชื่อสถานบริการ</label>
+                <input type="text" class="form-control" v-model.trim="site.name"/>
+              </div>
+            </div>
+            <div class="row">
+              <div class="mb-3">
+                <label class="form-label">ที่อยู่</label>
+                <input type="text" class="form-control" v-model.trim="site.address"/>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-4">
+                <div class="mb-3">
+                  <label class="form-label">จังหวัด</label>
+                  <select class="form-select" id="province">
+                    <option value="0">เลือก</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="mb-3">
+                  <label class="form-label">อำเภอ</label>
+                  <select class="form-select" id="amphur">
+                    <option value="0">เลือก</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="mb-3">
+                  <label class="form-label">ตำบล</label>
+                  <select class="form-select" id="tambon">
+                    <option value="0">เลือก</option>
+                  </select>
+                </div>
+              </div>  
+            </div>
+            <div class="row">
+              <div class="col-md-4">
+                <div class="mb-3">
+                  <label class="form-label">ละติจูด</label>
+                  <input type="text" class="form-control" v-model.trim="site.latitude" value="0.0"/>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="mb-3">
+                  <label class="form-label">ลองจิจูด</label>
+                  <input type="text" class="form-control" v-model.trim="site.longitude" value="0.0"/>
+                </div>
+              </div>
+            </div> 
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label">เลือกโอเปอร์เรชัน</label>
+            <div class="table-outer">
+              <div class="table-responsive">
+                <table class="table table-striped table-bordered">
+                  <thead>
+                    <tr>
+                      <th>
+                        <input @change="check_change_all()" v-model="all_checked" type="checkbox" class="form-check m-0" />
+                      </th>
+                      <th>Code</th>
+                      <th>Name</th>
+                      <th>Description</th>
+                      <th>Type</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="operation in operations">
+                      <td>
+                        <input @change="update_all_checked()" v-model="operation.is_checked" type="checkbox" class="form-check m-0" />
+                      </td>
+                      <td>{operation.id}</td>
+                      <td>{operation.name}</td>
+                      <td>{operation.description}</td>
+                      <td>{operation.opn_type}</td>
+                    </tr>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="my-3 d-flex align-items-end justify-content-center">
+          <button @click="active_ui = 1" class="btn btn-outline-secondary mx-2">Cancel</button> <button @click="submit" class="btn btn-danger mx-2">Submit</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block app_script %}
+<script src="{{ url_for('static', filename='assets/js/select2.min.js') }}"></script>
+<script>
+const { createApp } = Vue;
+
+createApp({
+    data() {
+      return {
+        active_ui: 1,
+        all_checked: false,
+        operations: [],
+        sites: [],
+        act: 1,
+        site: {
+          id: 0,
+          code: "",
+          name: "",
+          address: "",
+          province_id: 0,
+          amphur_id: 0,
+          tambon_id: 0,
+          latitude: 0.0,
+          longitude: 0.0,
+          operations:[]
+        },
+        temp_amphur_id:0,
+        temp_tambon_id:0,
+        site0: null,
+      }
+    },
+    mounted() {
+      this.site0 = { ...this.site }
+      this.init_ui();
+    },
+    methods: {
+      async init_ui() {
+        $("#province").select2();
+        $("#amphur").select2();
+        $("#tambon").select2();
+        $('#province').on('change', this.change_province);
+        $('#amphur').on('change', this.change_amphur);
+
+        this.get_provinces();
+        this.submit_form("get_sites", false);
+        this.submit_form("get_operations", false);
+      },
+      get_api_endpoint(action) {
+        switch (action) {
+          case "get_operations":
+            return "/operations/get";
+          case "get_sites":
+            return "/sites/get";
+          case "create_site":
+            return "/sites/create";
+          case "update_site":
+            return "/sites/update";
+        }
+      },
+      validate_input(action) {
+        let is_valid = true;
+        switch (action) {
+          case "get_operations":
+            return true;
+          case "get_sites":
+            return true;
+          case "create_site":
+            this.site.province_id = parseInt($('#province').val());
+            this.site.amphur_id = parseInt($('#amphur').val());
+            this.site.tambon_id = parseInt($('#tambon').val());
+
+            if(this.site.code === "")
+            {
+              console.log("Code is blank");
+              is_valid = false;
+            }
+            if(this.site.name === "")
+            {
+              console.log("Name is blank");
+              is_valid = false;
+            }
+            if(this.site.address === "")
+            {
+              console.log("Address is blank");
+              is_valid = false;
+            }
+            if(this.site.province_id === 0)
+            {
+              console.log("โปรดเลือกจังหวัด");
+              is_valid = false;
+            }
+            if(this.site.amphur_id === 0)
+            {
+              console.log("โปรดเลือกอำเภอ");
+              is_valid = false;
+            }
+            if(this.site.tambon_id === 0)
+            {
+              console.log("โปรดเลือกตำบล");
+              is_valid = false;
+            }
+            if(this.site.latitude === "")
+            {
+              console.log("ละติจูดต้องเป็นตัวเลข");
+              is_valid = false;
+            }
+            if(this.site.longitude === "")
+            {
+              console.log("ลองจิจูดต้องเป็นตัวเลข");
+              is_valid = false;
+            }
+
+            this.site.operations = [];
+            for(let i = 0; i < this.operations.length; i++)
+            {
+              if(this.operations[i].is_checked)
+                this.site.operations.push(this.operations[i].id);
+            }
+            return is_valid;
+          case "update_site":
+            this.site.province_id = parseInt($('#province').val());
+            this.site.amphur_id = parseInt($('#amphur').val());
+            this.site.tambon_id = parseInt($('#tambon').val());
+
+            if(this.site.code === "")
+            {
+              console.log("Code is blank");
+              is_valid = false;
+            }
+            if(this.site.name === "")
+            {
+              console.log("Name is blank");
+              is_valid = false;
+            }
+            if(this.site.address === "")
+            {
+              console.log("Address is blank");
+              is_valid = false;
+            }
+            if(this.site.province_id === 0)
+            {
+              console.log("โปรดเลือกจังหวัด");
+              is_valid = false;
+            }
+            if(this.site.amphur_id === 0)
+            {
+              console.log("โปรดเลือกอำเภอ");
+              is_valid = false;
+            }
+            if(this.site.tambon_id === 0)
+            {
+              console.log("โปรดเลือกตำบล");
+              is_valid = false;
+            }
+            if(this.site.latitude === "")
+            {
+              console.log("ละติจูดต้องเป็นตัวเลข");
+              is_valid = false;
+            }
+            if(this.site.longitude === "")
+            {
+              console.log("ลองจิจูดต้องเป็นตัวเลข");
+              is_valid = false;
+            }
+
+            this.site.operations = [];
+            for(let i = 0; i < this.operations.length; i++)
+            {
+              if(this.operations[i].is_checked)
+                this.site.operations.push(this.operations[i].id);
+            }
+            return is_valid;
+        }
+      },
+      async get_form_data(action) {
+        switch (action) {
+          case "get_operations":
+            return {};
+          case "get_sites":
+            return {};
+          case "create_site":
+            await this.msg_box_show(this.with_loading("Submitting..."), 0);
+            return this.site;
+          case "update_site":
+            await this.msg_box_show(this.with_loading("Submitting..."), 0);
+            return this.site;
+        }
+      },
+      process_response_data(action, data) {
+        switch (action) {
+          case "get_operations":
+            let operations = data.data_list;
+            for(let i = 0; i < operations.length; i++) {
+              operations[i].is_checked = false;
+              operations[i].opn_type = MyApp.opn_type_dict[operations[i].type];
+            }  
+            operations.sort((a, b) => a.id.localeCompare(b.id));
+            this.operations = operations;
+            return;
+          case "get_sites":
+            $('#data-table').DataTable().destroy();
+            this.sites = data.data_list;
+            Vue.nextTick(() => {
+              $('#data-table').DataTable({lengthChange: false, searching: false, pageLength: 10});
+              this.init_tooltips();
+            });
+            return;
+          case "create_site":
+            this.submit_form("get_sites", false);
+            this.hide_msg_box();
+            this.active_ui = 1;
+            return;
+          case "update_site":
+            this.submit_form("get_sites", false);
+            this.hide_msg_box();
+            this.active_ui = 1;
+            return;
+        }
+      },
+      handle_response_error(action, error) {
+        response = error.response;
+        if(response) {
+          //We get response from the server
+          if(response.data.status === "I" || response.data.status === "U") window.location.href = "/logout";         
+          switch (action) {
+            case "get_operations":
+              console.log(response.data.err_message);
+              return;
+            case "get_sites":
+              console.log(response.data.err_message);
+              return;
+            case "create_site":
+              this.msg_box_set(response.data.err_message, 1);
+              return;
+            case "update_site":
+              this.msg_box_set(response.data.err_message, 1);
+              return;
+          }
+        }
+        else {
+          //The Server does not respond
+          switch (action) {
+            case 'get_operations':
+              console.log("An unknown error occurred. Please try again later.");
+              return;
+            case 'get_sites':
+              console.log("An unknown error occurred. Please try again later.");
+              return;
+            case 'create_site':
+              this.msg_box_set("An unknown error occurred. Please try again later.", 1);
+              return;
+            case 'update_site':
+              this.msg_box_set("An unknown error occurred. Please try again later.", 1);
+              return;
+          }
+        }
+      },
+      handle_finally(action) {
+        switch(action) {
+        }
+      },
+      check_change_all() {
+        for(let i = 0; i < this.operations.length; i++)
+          this.operations[i].is_checked = this.all_checked;
+      },
+      update_all_checked() {
+        let count = 0;
+        for(let i = 0; i < this.operations.length; i++)
+          if(this.operations[i].is_checked) count++;
+
+        if(count === this.operations.length) this.all_checked = true;
+        else this.all_checked = false;
+      },
+      async submit() {
+        if(this.act === 1)
+          this.submit_form("create_site");
+        else
+          this.submit_form("update_site");
+      },
+      change_province(){
+        this.get_amphurs();
+      },
+      change_amphur(){
+        this.get_tambons();
+      },
+      //Call one time only
+      async get_provinces() {
+        try {
+          $('#province').empty();
+          $('#province').append(new Option("เลือก", 0, false, false));
+          $('#province').val(0);
+
+          let provinces = await MyApp.get_provinces();
+          provinces.sort((a, b) => a.name_th.localeCompare(b.name_th));
+          provinces.forEach(function(option) {
+            let newOption = new Option(option.name_th, option.id, false, false);
+            $('#province').append(newOption);
+          });
+        }
+        catch(error) {
+          console.log(error);
+        }
+        $('#province').trigger("change");
+      },
+      async get_amphurs() {
+        try {
+          $('#amphur').empty();
+          $('#amphur').append(new Option("เลือก", 0, false, false));
+          $('#amphur').val(0);
+
+          let province_id = $('#province').val();
+          if(province_id == "0") {
+            $('#amphur').trigger("change");
+            return;
+          } 
+
+          let amphurs = await MyApp.get_amphurs(province_id);
+          amphurs.sort((a, b) => a.name_th.localeCompare(b.name_th));
+          amphurs.forEach(function(option) {
+            let newOption = new Option(option.name_th, option.id, false, false);
+            $('#amphur').append(newOption);
+          });
+
+          if(this.temp_amphur_id != "0") {
+            $('#amphur').val(this.temp_amphur_id);
+            this.temp_amphur_id = 0;
+          }
+        }
+        catch(error) {
+          console.log(error);
+        }
+        
+        $('#amphur').trigger("change");
+      },
+      async get_tambons() {
+        try {
+          $('#tambon').empty();
+          $('#tambon').append(new Option("เลือก", 0, false, false));
+          $('#tambon').val(0);
+
+          let amphur_id = $('#amphur').val();
+          if(amphur_id == "0") {
+            $('#tambon').trigger("change");
+            return;
+          }
+
+          let tambons = await MyApp.get_tambons(amphur_id);
+          tambons.sort((a, b) => a.name_th.localeCompare(b.name_th));
+          tambons.forEach(function(option) {
+            let newOption = new Option(`${option.name_th} (${option.zip_code})`, option.id, false, false);
+            $('#tambon').append(newOption);
+          });
+
+          if(this.temp_tambon_id != "0") {
+            $('#tambon').val(this.temp_tambon_id);
+            this.temp_tambon_id = 0;
+          }
+        }
+        catch(error) {
+          console.log(error);
+        }
+
+        $('#tambon').trigger("change");
+      },
+      show_create() {
+        this.temp_amphur_id = 0;
+        this.temp_tambon_id = 0;
+        MyApp.copy_vals(this.site0, this.site, ["operations"]);
+        $('#province').val(0);
+        $('#province').trigger('change');
+
+        this.all_checked = false;
+        for(let i = 0; i < this.operations.length; i++) {
+          this.operations[i].is_checked = false;
+        }
+        this.act = 1;
+        this.active_ui = 2;
+      },
+      async show_edit(site) {
+        this.temp_amphur_id = site.amphur_id;
+        this.temp_tambon_id = site.tambon_id;
+
+        $('#province').val(site.province_id);
+        $('#province').trigger('change');
+
+        MyApp.copy_vals(site, this.site, ["operations"]);
+
+        for(let i = 0; i < this.operations.length; i++) {
+          this.operations[i].is_checked = false;
+        }
+        this.all_checked = false;
+
+        for(let i = 0; i < site.operations.length; i++) {
+          let opn_id = site.operations[i];
+          for(let j = 0; j < this.operations.length; j++) {
+            if(opn_id === this.operations[j].id)
+              this.operations[j].is_checked = true;
+          }
+        }
+        this.update_all_checked();
+        this.act = 2;
+        this.active_ui = 2;
+      }
+    },
+    delimiters: ["{","}"]
+}).mixin(global_mixing).mount('#app');
+</script>
+{% endblock %}

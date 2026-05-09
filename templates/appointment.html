@@ -1,0 +1,574 @@
+{% extends "layout.html" %}
+{% block title %}การนัดหมาย{% endblock %}
+{% block header %}การนัดหมาย{% endblock %}
+{% block sub_header %}นัดหมายผู้ป่วย/เช็คตารางนัด{% endblock %}
+{% block app_style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/daterange.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/full-calendar.min.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/full-calendar.custom.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/select2.min.css') }}" />
+<style>
+.select2 {
+  width:100%!important;
+}
+.select2-container .select2-selection--single {
+  height: calc(1.5em + 0.75rem + 2px); /* Same as Bootstrap's input height */
+}
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+  line-height: calc(1.5em + 0.75rem + 2px); /* Match the line height */
+}
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+  height: calc(1.5em + 0.75rem + 2px); /* Align the arrow with the select box */
+}
+.fc-daygrid-day-events {
+	cursor: pointer;
+}
+.fc-daygrid-event-harness {
+    cursor: pointer;
+}
+.fc-event-main {
+	cursor: pointer;
+}
+.hide {
+    visibility: hidden !important;
+}
+[v-cloak] {
+  display: none;
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col">
+    <div class="card mb-4">
+      <div class="card-body">
+        <div v-cloak>
+          <div ref="my_calendar"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" ref="appt_modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="staticBackdropLabel">
+                การนัดหมาย
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="row">
+                <div class="col">
+                  <div class="mb-3">
+                    <label class="form-label">ผู้ป่วย</label>
+                    <select class="form-select" id="patient"></select>
+                  </div>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col">
+                  <div class="mb-3">
+                    <label class="form-label">เบอร์มือถือ</label>
+                    <input type="text" class="form-control" v-model.trim="appt.pt_mobile">
+                  </div>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col">
+                  <div class="mb-3">
+                    <label class="form-label">การรักษา</label>
+                    <select class="form-select" id="opn_id">
+                      <option value="">เลือก</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col">
+                  <div class="mb-3">
+                    <label class="form-label">แพทย์</label>
+                    <select class="form-select" id="user_id">
+                      <option value="0">เลือก</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-6">
+                  <div class="mb-3">
+                    <label class="form-label">วันที่</label>
+                    <input type="text" class="form-control" id="appt_date">
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="mb-3">
+                    <label class="form-label">เวลา</label>
+                    <input type="text" class="form-control" id="appt_time">
+                  </div>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col">
+                  <div class="mb-3">
+                    <label class="form-label">หมายเหตุ</label>
+                    <input type="text" class="form-control" v-model.trim="appt.note">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+                <button @click="appt_modal.hide()" type="button" class="btn btn-secondary">
+                  Cancel
+                </button>
+                <button @click="appt_modal_submit" type="button" class="btn btn-primary">
+                  Submit
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" ref="event_modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+  <div class="modal-dialog">
+      <div class="modal-content">
+          <div class="modal-header">
+              <h5 class="modal-title" id="staticBackdropLabel">
+              การนัดหมาย
+              </h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row">
+              <div class="col">
+                <div class="mb-3">
+                  <label class="form-label">ชื่อผู้ป่วย</label>
+                  <input type="text" class="form-control" v-model.trim="event.pt_name" disabled>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col">
+                <div class="mb-3">
+                  <label class="form-label">เบอร์มือถือ</label>
+                  <input type="text" class="form-control" v-model.trim="event.pt_mobile" disabled>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col">
+                <div class="mb-3">
+                  <label class="form-label">การรักษา</label>
+                  <input type="text" class="form-control" v-model.trim="event.opn_name" disabled>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col">
+                <div class="mb-3">
+                  <label class="form-label">แพทย์</label>
+                  <input type="text" class="form-control" v-model.trim="event.u_name" disabled>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-6">
+                <div class="mb-3">
+                  <label class="form-label">วันที่</label>
+                  <input type="text" class="form-control" v-model.trim="event.date" disabled>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="mb-3">
+                  <label class="form-label">เวลา</label>
+                  <input type="text" class="form-control" v-model.trim="event.time" disabled>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col">
+                <div class="mb-3">
+                  <label class="form-label">หมายเหตุ</label>
+                  <input type="text" class="form-control" v-model.trim="event.note" disabled>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+              <button @click="event_modal.hide()" type="button" class="btn btn-primary">
+                Close
+              </button>
+          </div>
+      </div>
+  </div>
+</div>
+{% endblock %}
+{% block app_script %}
+<script src="{{ url_for('static', filename='assets/js/moment.min.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/daterange.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/full-calendar.min.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/select2.min.js') }}"></script>
+<script>
+const { createApp } = Vue;
+
+// Create Vue App
+createApp({
+  data() {
+    return {
+      p_appt_time: "00:00",
+		  p_end_time: "23:55",
+      calendar: null,
+		  cal_start_date: null,
+		  cal_end_date: null,
+		  cal_view_type: null,
+		  colors: [
+        {color: "#e8f4d6", borderColor: "#53810c", textColor: "#53810c"},
+        {color: "#e8f4ff", borderColor: "#0b5aa9", textColor: "#0b5aa9"}
+      ],
+      appt: {
+        //"pt_hn", "pt_mobile", "opn_id", "user_id", "appt_time", "note", "status"
+        id: 0,
+        pt_hn: "",
+        pt_mobile: "",
+        opn_id: "",
+        user_id: 0,
+        appt_time: "",
+        note: "",
+        status: 0
+      },
+      event: {
+        pt_name: "",
+        pt_mobile: "",
+        opn_name: "",
+        u_name: "",
+        date: "",
+        time: "",
+        note: ""
+      },
+      appt_modal: null,
+      event_modal: null,
+    };
+  },
+  mounted() {
+    this.init_ui();
+  },
+  methods: {
+    async init_ui() {
+      $("#user_id").select2({dropdownParent: this.$refs.appt_modal});
+      $("#opn_id").select2({dropdownParent: this.$refs.appt_modal});
+
+      //Put awaits here to block app process if error happens
+      await this.get_med_users();
+      await this.get_med_operations();
+
+      $("#appt_date").daterangepicker({
+  				singleDatePicker: true,
+  				startDate: moment().startOf("hour"),
+  				endDate: moment().startOf("hour").add(32, "hour"),
+  				locale: {
+    				format: "DD/MM/YYYY",
+  				},
+			});
+
+      $("#appt_time").daterangepicker({
+        timePicker: true,
+        singleDatePicker: true,
+        timePicker24Hour: true,
+        timePickerIncrement: 5,
+        locale: {
+          format: "HH:mm",
+        },
+      })
+      .on("show.daterangepicker", this.show_picker);
+
+      this.appt_modal = new bootstrap.Modal(this.$refs.appt_modal, { keyboard: false });
+      this.event_modal = new bootstrap.Modal(this.$refs.event_modal, { keyboard: false });
+      
+      $("#patient").select2({
+        dropdownParent: this.$refs.appt_modal,
+        ajax: {
+          delay: 250, // Delay for better user experience
+          url: '/patients/get2',
+          dataType: 'json',
+          contentType:"application/json; charset=utf-8",
+          type: "POST",
+          data: function (params) {
+              return JSON.stringify({
+                  search_text: params.term,
+              });
+          },
+          processResults: function (data) {
+            // Map the data to the format Select2 expects
+            return {
+              results: data.data_list.map(item => {
+                return {
+                  id: item.hn,
+                  text: item.first_name + " " + item.last_name,
+                  mobile: item.mobile
+                };
+              })
+            };
+          },
+        },
+        placeholder: 'ค้นหาผู้ป่วย',
+        minimumInputLength: 3 // Minimum characters to trigger the search
+      });
+
+      $('#patient').on('select2:select', this.select_patient);
+
+      //init calendar
+      //Initialize Calendar
+      var calendarEl = this.$refs.my_calendar;
+      var calendar = new FullCalendar.Calendar(calendarEl, {
+		    headerToolbar: {
+			    left: "prevYear,prev,next,nextYear today",
+			    center: "title",
+			    right: "dayGridMonth,timeGridWeek,timeGridDay",
+		    },
+		    //initialDate: "2022-10-12",
+		    initialDate: Date.now(),
+		    navLinks: true, // can click day/week names to navigate views
+		    selectable: true,
+		    selectMirror: true,
+		    select: this.show_create_appt,
+		    datesSet: this.dates_set,
+		    eventClick: this.show_event,
+		    editable: false,
+		    dayMaxEvents: true, // allow "more" link when too many events
+		    slotLabelFormat: {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        },
+        eventTimeFormat: {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        },
+		    events: [],
+		  });
+    	this.calendar = calendar;
+      Vue.nextTick(() => {
+        this.calendar.render();
+      });
+    },
+    show_picker(ev, picker) {
+			picker.container.find(".calendar-table").hide();
+
+			let appt_time_array = this.p_appt_time.split(':');
+			picker.container.find('.hourselect').eq(0).val(parseInt(appt_time_array[0])).trigger('change');
+      picker.container.find('.minuteselect').eq(0).val(parseInt(appt_time_array[1])).trigger('change');
+		},
+    dates_set(info) {
+      this.cal_start_date = info.start;
+      this.cal_end_date = info.end;
+			this.cal_view_type = info.view.type;
+
+      this.get_appointments();
+		},
+    select_patient(e){
+      this.appt.pt_mobile = e.params.data.mobile;
+    },
+    show_create_appt(arg) {
+      if(this.cal_view_type === "dayGridMonth")
+			{
+        $("#appt_date").data('daterangepicker').setStartDate(arg.start);
+				$("#appt_date").data('daterangepicker').setEndDate(arg.start);
+
+				this.p_appt_time = "00:00";
+				$("#appt_time").val("00:00");
+			}
+			else{
+        
+				if(arg.allDay)
+				{
+          //All day is not allowed;
+          this.calendar.unselect();
+					return;
+				}
+
+        /*if (arg.start.getDate() !== arg.end.getDate()) {
+					//Horizontal selection is not allowed in week mode;
+					this.calendar.unselect();
+					return;
+				}*/
+
+        let appt_dt_array = arg.startStr.split('T');
+        $("#appt_date").data('daterangepicker').setStartDate(new Date(appt_dt_array[0]));
+				$("#appt_date").data('daterangepicker').setEndDate(new Date(appt_dt_array[0]));
+
+				let appt_time_array = appt_dt_array[1].split(':');
+				this.p_appt_time = `${appt_time_array[0]}:${appt_time_array[1]}`;
+				$("#appt_time").val(`${this.p_appt_time}`);
+			}
+
+      this.calendar.unselect();
+      $('#patient').empty();
+      this.appt.pt_mobile = "";
+      this.appt.note = "";
+			this.appt_modal.show();
+    },
+		async show_event(arg) {
+      this.event.pt_name = arg.event.extendedProps.pt_name;
+      this.event.pt_mobile = arg.event.extendedProps.pt_mobile;
+      this.event.opn_name = arg.event.extendedProps.opn_name;
+      this.event.u_name = arg.event.extendedProps.u_name;
+      const [d,t] = MyApp.local_time_str2(arg.event.start, true);
+      this.event.date = d;
+      this.event.time = t;
+      this.event.note = arg.event.extendedProps.note;
+      this.event_modal.show();
+		},
+    async appt_modal_submit() 
+    {
+      let pt_hn = $("#patient").val();
+      let user_id = $("#user_id").val();
+      let opn_id = $("#opn_id").val();
+      let appt_date = $("#appt_date").val();
+      let appt_time = $("#appt_time").val();
+      this.appt.appt_time = MyApp.utc_time_str(`${MyApp.iso_date_str(appt_date)} ${appt_time}`);
+
+      if(pt_hn == null)
+      {
+        alert("โปรดเลือกผู้ป่วย");
+        return;
+      }
+      if(user_id == null || user_id == 0)
+      {
+        alert("โปรดเลือกแพทย์");
+        return;
+      }
+      if(opn_id == null || opn_id == "")
+      {
+        alert("โปรดเลือกการดำเนินงาน");
+        return;
+      }
+      if(this.appt.pt_mobile === "")
+      {
+        alert("โปรดระบุหมายเลขโทรศัพท์");
+        return;
+      }
+      if(this.appt.note.length > 100)
+      {
+        alert("รายละเอียดเกินกว่า 100 ตัวอักษร");
+        return;
+      }
+
+      this.appt.pt_hn = pt_hn;
+      this.appt.opn_id = opn_id;
+      this.appt.user_id = parseInt(user_id);
+
+      try {
+        const res = await axios.post("/appointments/create", this.appt);
+        if(res.data.status == "T"){
+          this.get_appointments();
+          this.appt_modal.hide();
+        }
+        else {
+          console.log(res.data.err_message);
+        }
+      }
+      catch(error) {
+        console.log(error);
+      }
+    },
+    async get_appointments() {
+			try{
+				this.calendar.removeAllEvents();
+				const response = await axios.post("/appointments/get", {
+          start_date_time: MyApp.utc_time_str2(this.cal_start_date),
+          end_date_time: MyApp.utc_time_str2(this.cal_end_date),
+          is_sup: true
+        });
+
+        let appointments = response.data.data_list;
+				for(let i = 0; i < appointments.length; i++)
+				{
+					let appt = appointments[i];
+
+					this.calendar.addEvent({
+            title: appt.opn_name,
+				    start: MyApp.local_time_str(new Date(appt.appt_time)),
+				    color: this.colors[1].color,
+				    borderColor: this.colors[1].borderColor,
+				    textColor: this.colors[1].textColor,
+            pt_name: appt.pt_name,
+            pt_mobile : appt.pt_mobile,
+            note: appt.note,
+            opn_name: appt.opn_name,
+            u_name: appt.u_name,
+			    });
+				}
+			}
+			catch(error) {
+				console.log(error);
+			}
+		},
+    async get_med_users()
+    {
+      try{
+        $('#user_id').empty();
+        $('#user_id').append(new Option("เลือก", 0, false, false));
+        $('#user_id').val(0);
+
+        let users = await MyApp.get_users("D02");
+        users.forEach(function(option) {
+          let newOption = new Option(`${option.prefix} ${option.first_name} ${option.last_name}`, option.id, false, false);
+          $('#user_id').append(newOption);
+        });
+      }
+      catch(error)
+      {
+        console.log(error);
+      }
+
+      $('#user_id').trigger("change");
+    },
+    async get_med_operations()
+    {
+      try {
+        $('#opn_id').empty();
+        $('#opn_id').append(new Option("เลือก", "", false, false));
+        $('#opn_id').val(0);
+
+        let opns = await MyApp.get_med_operations();
+        opns.forEach(function(option) {
+          let newOption = new Option(`(${option.id}) ${option.name}`, option.id, false, false);
+          $('#opn_id').append(newOption);
+        });
+      }
+      catch(error)
+      {
+        console.log(error);
+      }
+
+      $('#opn_id').trigger("change");
+    },
+    hn_str(id)
+    {
+      return `HN${String(id).padStart(8, '0')}`;
+    },
+    name_str(prefix, first_name, middle_name, last_name)
+    {
+      return (middle_name === "")? `${prefix} ${first_name} ${last_name}` : `${prefix} ${first_name} ${middle_name} ${last_name}`; 
+    },
+    gender_str(code)
+    {
+      return MyApp.gender_str(code);
+    },
+    nationality_str(id)
+    {
+      return this.nationality_dict[id];
+    },
+    right_str(id)
+    {
+      return this.right_dict[id];
+    },
+    time_str(utc_time_str) {
+      return MyApp.local_time_str2(utc_time_str);
+    }
+  },
+  delimiters: ["{","}"]
+}).mixin(global_mixing).mount("#app");
+</script>
+{% endblock %}

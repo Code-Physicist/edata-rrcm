@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}{% endblock %}</title>
+
+    <!-- Icomoon Font Icons css -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/fonts/icomoon/style.css') }}" />
+
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/main.min.css') }}" />
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/custom.css') }}" />
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/dataTables.bs5.css') }}" />
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/dataTables.bs5-custom.css') }}" />
+    
+    {% block app_style %}{% endblock %}
+    
+  </head>
+
+  <body>
+    <!-- Page wrapper start -->
+    <div class="page-wrapper">
+
+      <!-- Main container start -->
+      <div class="main-container">
+
+        <!-- Sidebar wrapper start -->
+        <nav id="sidebar" class="sidebar-wrapper">
+
+          <!-- App brand starts -->
+          <div class="app-brand px-3 py-2 d-flex align-items-center">
+            <a href="index.html">
+              <img src="{{ url_for('static', filename='assets/images/logo.svg') }}" class="logo" alt="Bootstrap Gallery" />
+            </a>
+          </div>
+          <!-- App brand ends -->
+
+          <!-- Sidebar menu starts -->
+          <div class="sidebarMenuScroll">
+            <ul class="sidebar-menu">
+{% if 'D01' in roles %}
+              <li{% if request.path == '/patients' %} class="active current-page"{% endif %}>
+                <a href="/patients">
+                  <i class="icon-users"></i>
+                  <span class="menu-text">ทะเบียนผู้ป่วย</span>
+                </a>
+              </li>
+{% endif %}
+{% if 'D01' in roles %}
+              <li{% if request.path == '/appointments' %} class="active current-page"{% endif %}>
+                <a href="/appointments">
+                  <i class="icon-calendar"></i>
+                  <span class="menu-text">การนัดหมาย</span>
+                </a>
+              </li>
+{% endif %}
+{% if 'D01' in roles %}
+              <li{% if request.path == '/med_sup' %} class="active current-page"{% endif %}>
+                <a href="/med_sup">
+                  <i class="icon-clipboard"></i>
+                  <span class="menu-text">ผู้ป่วยมาวันนี้</span>
+                </a>
+              </li>
+{% endif %}
+{% if 'D02' in roles and (roles['D02'] == 1 or roles['D02'] == 3) %}
+              <li{% if request.path == '/foot_opd' %} class="active current-page"{% endif %}>
+                <a href="/foot_opd">
+                  <i class="icon-medical_services"></i>
+                  <span class="menu-text">การวินิจฉัยเท้า</span>
+                </a>
+              </li>
+              <li{% if request.path == '/orders' %} class="active current-page"{% endif %}>
+                <a href="/orders">
+                  <i class="icon-shopping-bag"></i>
+                  <span class="menu-text">การสั่งผลิต</span>
+                </a>
+              </li>
+{% endif %}
+{% if 'A01' in roles %}
+              <li{% if request.path == '/operations' %} class="active current-page"{% endif %}>
+                <a href="/operations">
+                  <i class="icon-padding"></i>
+                  <span class="menu-text">โอเปอร์เรชัน</span>
+                </a>
+              </li>
+              <li{% if request.path == '/routes' %} class="active current-page"{% endif %}>
+                <a href="/routes">
+                  <i class="icon-import_export"></i>
+                  <span class="menu-text">การดำเนินงาน</span>
+                </a>
+              </li>
+              <li{% if request.path == '/sites' %} class="active current-page"{% endif %}>
+                <a href="/sites">
+                  <i class="icon-emoji_transportation"></i>
+                  <span class="menu-text">สถานบริการ</span>
+                </a>
+              </li>
+              <li{% if request.path == '/users' %} class="active current-page"{% endif %}>
+                <a href="/users">
+                  <i class="icon-user"></i>
+                  <span class="menu-text">ผู้ใช้งาน</span>
+                </a>
+              </li>
+{% endif %}
+            </ul>
+          </div>
+          <!-- Sidebar menu ends -->
+
+        </nav>
+        <!-- Sidebar wrapper end -->
+
+        <!-- App container starts -->
+        <div class="app-container">
+
+          <!-- App header starts -->
+          <div class="app-header d-flex align-items-center">
+
+            <!-- Toggle buttons start -->
+            <div class="d-flex">
+              <button class="btn btn-outline-success toggle-sidebar" id="toggle-sidebar">
+                <i class="icon-menu"></i>
+              </button>
+              <button class="btn btn-outline-danger pin-sidebar" id="pin-sidebar">
+                <i class="icon-menu"></i>
+              </button>
+            </div>
+            <!-- Toggle buttons end -->
+
+            <!-- App brand sm start -->
+            <div class="app-brand-sm d-md-none d-sm-block">
+              <a href="index.html">
+                <img src="{{ url_for('static', filename='assets/images/logo-sm.svg') }}" class="logo" alt="Bootstrap Gallery">
+              </a>
+            </div>
+            <!-- App brand sm end -->
+            <div class="dropdown d-flex align-items-center ms-4 pt-2">
+              <h4>{{site_name}}</h4>
+            </div>
+
+            <!-- App header actions start -->
+            <div class="header-actions">
+
+              <div class="dropdown ms-3">
+                <a class="dropdown-toggle d-flex align-items-center" href="#!" role="button" data-bs-toggle="dropdown"
+                  aria-expanded="false">
+                  <img src="{{ url_for('static', filename='assets/images/user.png') }}" class="img-3x m-2 ms-0 rounded-5" alt="Admin Templates" />
+                  <div class="d-md-flex d-none flex-column">
+                    <span>{{ name }}</span>
+                    <small>{{ username }}</small>
+                  </div>
+                </a>
+                <div class="dropdown-menu dropdown-menu-end dropdown-menu-sm shadow-sm gap-3">
+                  <a class="dropdown-item d-flex align-items-center py-2" href="profile.html"><i
+                      class="icon-gitlab fs-4 me-3"></i>User Profile</a>
+                  <a class="dropdown-item d-flex align-items-center py-2" href="account-settings.html"><i
+                      class="icon-settings fs-4 me-3"></i>Account Settings</a>
+                  <a class="dropdown-item d-flex align-items-center py-2" href="/logout"><i
+                      class="icon-log-out fs-4 me-3"></i>Logout</a>
+                </div>
+              </div>
+            </div>
+            <!-- App header actions end -->
+
+          </div>
+          <!-- App header ends -->
+
+          <!-- App body starts -->
+          <div class="app-body">
+
+            <!-- Container starts -->
+            <div class="container-fluid">
+
+              <!-- Row start -->
+              <div class="row">
+                <div class="col-12 col-xl-12">
+                  <h2 class="mb-2">{% block header %}{% endblock %}</h2>
+                  <h6 class="mb-4 fw-light">
+                    {% block sub_header %}{% endblock %}
+                  </h6>
+                </div>
+              </div>
+              <!-- Row end -->
+              <div id="app">
+                {% block content %}{% endblock %}
+                <div class="modal fade" ref="msg_modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+                  <div class="modal-dialog modal-dialog-centered">
+                      <div class="modal-content">
+                          <div class="modal-body px-4 pt-4 pb-4 text-center" >
+                              <h5 class="my-3 d-flex justify-content-center align-items-center" v-html="msg_box.content">
+                              </h5>
+                          </div>
+                          <div class="modal-footer py-2 justify-content-center" v-show="msg_box.status === 1">
+                            <button @click="msg_box.modal.hide()" type="button" class="btn btn-info px-4" :disabled="is_busy">
+                              OK
+                            </button>
+                          </div>
+                          <div class="modal-footer py-2" v-show="msg_box.status === 2">
+                              <button @click="msg_box.modal.hide()" type="button" class="btn btn-secondary" :disabled="is_busy">
+                                Cancel
+                              </button>
+                              <button type="button" @click="msg_ok" type="button" class="btn btn-primary" :disabled="is_busy">
+                                Submit
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Container ends -->
+
+          </div>
+          <!-- App body ends -->
+
+          <!-- App footer start -->
+          <div class="app-footer">
+            <span>© Bootstrap Gallery 2024</span>
+          </div>
+          <!-- App footer end -->
+
+        </div>
+        <!-- App container ends -->
+
+      </div>
+      <!-- Main container end -->
+
+    </div>
+    <!-- Page wrapper end -->
+
+    <!-- *************
+			************ JavaScript Files *************
+		************* -->
+    <script src="{{ url_for('static', filename='assets/js/jquery.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/bootstrap.bundle.min.js') }}"></script>
+    
+    <!-- Custom JS files -->
+    <script src="{{ url_for('static', filename='assets/js/custom.js') }}"></script>
+
+    <!-- Axios and Utilities JS -->
+    <script src="{{ url_for('static', filename='assets/js/axios.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/vue.global.prod.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/utils.js') }}"></script>
+    <script>
+      const global_mixing = {
+        data() {
+          return {
+            is_busy: false,
+            msg_box: {
+              modal: null,
+              status: 1, // 1 OK, 2 YesNo
+              content: "",
+              action: "" // Current action
+            },
+          };
+        },
+        mounted() {
+          this.msg_box.modal = new bootstrap.Modal(this.$refs.msg_modal, { keyboard: false });
+        },
+        methods: {
+          async submit_form(action, block = true) {
+            if(this.is_busy && block) return;   
+            try {
+              if(block) this.is_busy = true;         
+              if (!this.validate_input(action)) return;
+              const response = await axios.post(this.get_api_endpoint(action), await this.get_form_data(action));
+              this.process_response_data(action, response.data);
+            } catch (error) {
+              console.log(error);
+              this.handle_response_error(action, error);
+            }
+            finally {
+              this.handle_finally(action);
+              if(block) this.is_busy = false;
+            }
+          },
+          init_tooltips() {
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="table-tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+              return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+          },
+          // status 0 => No button, 1 => OK button, 2 => Yes/No button
+          async msg_box_show(msg, status = 1) {
+            this.msg_box.status = status;
+            this.msg_box.content = msg;
+            await this.show_modal(this.msg_box.modal);
+          },
+          msg_box_set(content, status) {
+            this.msg_box.status = status;
+            this.msg_box.content = content;
+          },
+          with_loading(content) {
+            return `<div class="spinner-border me-2"></div> ${content}`;
+          },
+          msg_ok() {
+            this.submit_form(this.msg_box.action);
+          },
+          hide_msg_box() {
+            this.msg_box.modal.hide();
+          },
+          show_modal(modal_instance) {
+            const modal = $(modal_instance._element);
+            return new Promise((resolve) => {
+              if (modal.hasClass('show')) {
+                // If already open, resolve immediately
+                resolve();
+              } 
+              else { 
+                modal.on('shown.bs.modal', function onShow() {
+                  // Remove the event listener after it fires
+                  modal.off('shown.bs.modal', onShow);
+                  resolve();
+                });
+                modal_instance.show();
+              }
+            });
+          }
+        },
+      };
+    </script>
+    <script src="{{ url_for('static', filename='assets/js/dataTables.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/dataTables.bootstrap.min.js') }}"></script>
+    {% block app_script %}{% endblock %}
+  </body>
+
+</html>
